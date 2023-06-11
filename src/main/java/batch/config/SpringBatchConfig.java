@@ -2,14 +2,16 @@ package batch.config;
 
 
 import batch.entity.Customer;
+import batch.listener.StepSkipListener;
 import batch.repository.CustomerRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.SkipListener;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.core.step.skip.SkipPolicy;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.data.RepositoryItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
@@ -87,6 +89,12 @@ public class SpringBatchConfig {
                 .reader(reader())
                 .processor((ItemProcessor<? super Customer, ? extends Customer>) processor())
                 .writer(writer())
+                .faultTolerant()
+                //.skipLimit(5)  // skip up to 5 rows mistakes
+                //.skip(NumberFormatException.class)  // if you find any NumberFormatException just skip that row rather than roll back it (restore (a database) to a previously defined state) and process further rows.
+                //.noSkip(IllegalArgumentException.class)
+                .listener(skipListener()) // notifying to the user by tracking the message failure in the log.
+                .skipPolicy(skipPolicy())  // write your own skip policy.
                 .taskExecutor(taskExecutor())
                 .build();
     }
@@ -104,6 +112,16 @@ public class SpringBatchConfig {
         SimpleAsyncTaskExecutor asyncTaskExecutor = new SimpleAsyncTaskExecutor();
         asyncTaskExecutor.setConcurrencyLimit(10);
         return asyncTaskExecutor;
+    }
+
+    @Bean
+    public SkipPolicy skipPolicy(){
+        return new ExceptionSkipPolicy();
+    }
+
+    @Bean
+    public SkipListener skipListener(){
+        return new StepSkipListener();
     }
 
 }
